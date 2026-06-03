@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { format, subDays, startOfDay, isAfter } from 'date-fns';
+import { motion } from 'framer-motion';
 import {
   BarChart,
   Bar,
@@ -19,12 +20,10 @@ import {
 } from 'recharts';
 import {
   BarChart3,
-  PieChart as PieChartIcon,
   TrendingUp,
   Phone,
   Clock,
   Target,
-  AlertCircle,
   Handshake,
   Calendar
 } from 'lucide-react';
@@ -35,7 +34,6 @@ interface AnalyticsDashboardProps {
   history: CallHistoryItem[];
 }
 
-// Format number with Kenyan locale
 const formatKES = (amount: number) => {
   return new Intl.NumberFormat('en-KE').format(amount);
 };
@@ -43,7 +41,6 @@ const formatKES = (amount: number) => {
 export function AnalyticsDashboard({ history }: AnalyticsDashboardProps) {
   const [dateRange, setDateRange] = useState<'7d' | '30d' | 'all'>('30d');
 
-  // Filter by date range
   const filteredHistory = history.filter(call => {
     if (dateRange === 'all') return true;
     const days = dateRange === '7d' ? 7 : 30;
@@ -51,21 +48,28 @@ export function AnalyticsDashboard({ history }: AnalyticsDashboardProps) {
     return isAfter(new Date(call.startedAt), cutoffDate);
   });
 
-  // Calculate statistics
   const totalCalls = filteredHistory.length;
   const totalDuration = filteredHistory.reduce((sum, c) => sum + c.duration, 0);
   const avgDuration = totalCalls > 0 ? Math.round(totalDuration / totalCalls) : 0;
   const totalPromised = filteredHistory.reduce((sum, c) => sum + c.totalPromisedAmount, 0);
   const totalPromises = filteredHistory.reduce((sum, c) => sum + c.promisesCount, 0);
 
-  // Sentiment distribution
+  const chartColors = {
+    primary: '#6366f1',
+    primaryLight: '#a5b4fc',
+    success: '#10b981',
+    warning: '#f59e0b',
+    danger: '#ef4444',
+    grid: '#e2e8f0',
+    text: '#94a3b8',
+  };
+
   const sentimentData = [
-    { name: 'Positive', value: filteredHistory.filter(c => c.sentiment === 'positive').length, color: '#22c55e' },
-    { name: 'Neutral', value: filteredHistory.filter(c => c.sentiment === 'neutral').length, color: '#6b7280' },
+    { name: 'Positive', value: filteredHistory.filter(c => c.sentiment === 'positive').length, color: '#10b981' },
+    { name: 'Neutral', value: filteredHistory.filter(c => c.sentiment === 'neutral').length, color: '#94a3b8' },
     { name: 'Negative', value: filteredHistory.filter(c => c.sentiment === 'negative').length, color: '#ef4444' },
   ].filter(d => d.value > 0);
 
-  // Calls over time (last 7 days)
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const date = subDays(new Date(), 6 - i);
     const dayStr = format(date, 'EEE');
@@ -81,7 +85,6 @@ export function AnalyticsDashboard({ history }: AnalyticsDashboardProps) {
     };
   });
 
-  // Performance metrics
   const avgSentimentScore = totalCalls > 0
     ? Math.round(
         filteredHistory.reduce((sum, c) => {
@@ -95,7 +98,6 @@ export function AnalyticsDashboard({ history }: AnalyticsDashboardProps) {
     ? Math.round((filteredHistory.filter(c => c.promisesCount > 0).length / totalCalls) * 100)
     : 0;
 
-  // Top performing days
   const dayPerformance = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => {
     const dayCalls = filteredHistory.filter(c => format(new Date(c.startedAt), 'EEE') === day);
     return {
@@ -107,15 +109,24 @@ export function AnalyticsDashboard({ history }: AnalyticsDashboardProps) {
     };
   });
 
+  const tooltipStyle = {
+    backgroundColor: '#1e293b',
+    border: 'none',
+    borderRadius: '6px',
+    color: '#f1f5f9',
+    fontSize: '12px',
+    padding: '8px 12px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+  };
+
   if (history.length === 0) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-8">
-        <div className="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
-          <BarChart3 className="w-16 h-16 mb-4 opacity-50" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Data Yet</h3>
-          <p className="text-sm text-center max-w-md">
+      <div className="bg-white dark:bg-slate-800 rounded-lg p-8">
+        <div className="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+          <BarChart3 className="w-12 h-12 mb-3 opacity-40" />
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">No Data Yet</h3>
+          <p className="text-xs text-center max-w-md leading-relaxed">
             Complete some sessions to see analytics and insights here.
-            Track your performance, sentiment trends, and promise rates over time.
           </p>
         </div>
       </div>
@@ -123,28 +134,33 @@ export function AnalyticsDashboard({ history }: AnalyticsDashboardProps) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with Date Range Filter */}
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className="space-y-4"
+    >
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-            <BarChart3 className="w-5 h-5 text-white" />
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-md bg-indigo-500 flex items-center justify-center shadow-sm">
+            <BarChart3 className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Analytics Dashboard</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Performance insights and trends</p>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Analytics</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Performance insights and trends</p>
           </div>
         </div>
-        <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
+        <div className="flex gap-0.5 p-0.5 bg-slate-100 dark:bg-slate-700 rounded-md">
           {(['7d', '30d', 'all'] as const).map((range) => (
             <button
               key={range}
               onClick={() => setDateRange(range)}
               className={cn(
-                'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                'px-2.5 py-1 text-xs font-medium rounded-[4px] transition-all duration-200',
                 dateRange === range
-                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
               )}
             >
               {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : 'All Time'}
@@ -154,243 +170,132 @@ export function AnalyticsDashboard({ history }: AnalyticsDashboardProps) {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard
-          icon={Phone}
-          label="Total Sessions"
-          value={totalCalls.toString()}
-          trend={null}
-          color="blue"
-        />
-        <MetricCard
-          icon={Clock}
-          label="Avg Duration"
-          value={`${Math.floor(avgDuration / 60)}:${(avgDuration % 60).toString().padStart(2, '0')}`}
-          trend={null}
-          color="purple"
-        />
-        <MetricCard
-          icon={Target}
-          label="Conversion Rate"
-          value={`${conversionRate}%`}
-          subtext={`${totalPromises} promises`}
-          trend={conversionRate > 50 ? 'up' : conversionRate < 30 ? 'down' : null}
-          color="green"
-        />
-        <MetricCard
-          icon={Handshake}
-          label="Total Promised"
-          value={`KES ${formatKES(totalPromised)}`}
-          trend={null}
-          color="amber"
-        />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MetricCard icon={Phone} label="Total Sessions" value={totalCalls.toString()} color="indigo" />
+        <MetricCard icon={Clock} label="Avg Duration" value={`${Math.floor(avgDuration / 60)}:${(avgDuration % 60).toString().padStart(2, '0')}`} color="violet" />
+        <MetricCard icon={Target} label="Conversion" value={`${conversionRate}%`} subtext={`${totalPromises} promises`} trend={conversionRate > 50 ? 'up' : conversionRate < 30 ? 'down' : null} color="emerald" />
+        <MetricCard icon={Handshake} label="Total Promised" value={`KES ${formatKES(totalPromised)}`} color="amber" />
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Calls Over Time */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Calendar className="w-5 h-5 text-blue-500" />
-            <h3 className="font-semibold text-gray-900 dark:text-white">Sessions This Week</h3>
-          </div>
-          <div className="h-64">
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ChartCard icon={Calendar} title="Sessions This Week" color="text-indigo-500">
+          <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={last7Days}>
                 <defs>
                   <linearGradient id="colorCalls" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="day" stroke="#9ca3af" fontSize={12} />
-                <YAxis stroke="#9ca3af" fontSize={12} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1f2937',
-                    border: 'none',
-                    borderRadius: '8px',
-                    color: '#fff'
-                  }}
-                  formatter={(value) => [value as number, 'Sessions']}
-                  labelFormatter={(label) => `Day: ${label}`}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="calls"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  fill="url(#colorCalls)"
-                />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+                <XAxis dataKey="day" stroke={chartColors.text} fontSize={11} tickLine={false} />
+                <YAxis stroke={chartColors.text} fontSize={11} tickLine={false} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(value) => [value as number, 'Sessions']} />
+                <Area type="monotone" dataKey="calls" stroke="#6366f1" strokeWidth={2} fill="url(#colorCalls)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </ChartCard>
 
-        {/* Sentiment Distribution */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <PieChartIcon className="w-5 h-5 text-purple-500" />
-            <h3 className="font-semibold text-gray-900 dark:text-white">Sentiment Distribution</h3>
-          </div>
-          <div className="h-64 flex items-center justify-center">
+        <ChartCard icon={null} title="Sentiment Distribution" color="text-emerald-500">
+          <div className="h-56 flex items-center justify-center">
             {sentimentData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
-                    data={sentimentData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
+                  <Pie data={sentimentData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={3} dataKey="value">
                     {sentimentData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#1f2937',
-                      border: 'none',
-                      borderRadius: '8px',
-                      color: '#fff'
-                    }}
-                    formatter={(value, name) => [`${value} sessions`, name]}
-                  />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(value, name) => [`${value} sessions`, name]} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-gray-400 dark:text-gray-500 text-sm">No sentiment data</p>
+              <p className="text-xs text-slate-400">No sentiment data</p>
             )}
           </div>
-          {/* Sentiment Score */}
-          <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Average Sentiment Score</span>
-              <span className={cn(
-                'text-lg font-bold',
-                avgSentimentScore >= 70 ? 'text-green-500' :
-                avgSentimentScore >= 40 ? 'text-yellow-500' : 'text-red-500'
-              )}>
-                {avgSentimentScore}%
-              </span>
-            </div>
-            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className={cn(
-                  'h-full rounded-full transition-all duration-500',
-                  avgSentimentScore >= 70 ? 'bg-green-500' :
-                  avgSentimentScore >= 40 ? 'bg-yellow-500' : 'bg-red-500'
-                )}
-                style={{ width: `${avgSentimentScore}%` }}
-              />
-            </div>
-          </div>
-        </div>
+        </ChartCard>
       </div>
 
-      {/* Performance by Day of Week */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp className="w-5 h-5 text-green-500" />
-          <h3 className="font-semibold text-gray-900 dark:text-white">Performance by Day</h3>
-        </div>
-        <div className="h-64">
+      {/* Performance by Day */}
+      <ChartCard icon={TrendingUp} title="Performance by Day" color="text-emerald-500">
+        <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={dayPerformance}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="day" stroke="#9ca3af" fontSize={12} />
-              <YAxis yAxisId="left" stroke="#9ca3af" fontSize={12} />
-              <YAxis yAxisId="right" orientation="right" stroke="#9ca3af" fontSize={12} unit="%" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1f2937',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: '#fff'
-                }}
-              />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+              <XAxis dataKey="day" stroke={chartColors.text} fontSize={11} tickLine={false} />
+              <YAxis yAxisId="left" stroke={chartColors.text} fontSize={11} tickLine={false} />
+              <YAxis yAxisId="right" orientation="right" stroke={chartColors.text} fontSize={11} tickLine={false} unit="%" />
+              <Tooltip contentStyle={tooltipStyle} />
               <Legend />
-              <Bar yAxisId="left" dataKey="calls" name="Sessions" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              <Bar yAxisId="right" dataKey="successRate" name="Success Rate %" fill="#22c55e" radius={[4, 4, 0, 0]} />
+              <Bar yAxisId="left" dataKey="calls" name="Sessions" fill="#6366f1" radius={[3, 3, 0, 0]} />
+              <Bar yAxisId="right" dataKey="successRate" name="Success Rate %" fill="#10b981" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </ChartCard>
 
-      {/* Promised Amounts Over Time */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Handshake className="w-5 h-5 text-amber-500" />
-          <h3 className="font-semibold text-gray-900 dark:text-white">Promised Amounts This Week</h3>
-        </div>
-        <div className="h-64">
+      {/* Promised Amounts */}
+      <ChartCard icon={Handshake} title="Promised Amounts This Week" color="text-amber-500">
+        <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={last7Days}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="day" stroke="#9ca3af" fontSize={12} />
-              <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1f2937',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: '#fff'
-                }}
-                formatter={(value) => [`KES ${formatKES(value as number)}`, 'Promised']}
-              />
-              <Line
-                type="monotone"
-                dataKey="promised"
-                stroke="#f59e0b"
-                strokeWidth={3}
-                dot={{ fill: '#f59e0b', strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6 }}
-              />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+              <XAxis dataKey="day" stroke={chartColors.text} fontSize={11} tickLine={false} />
+              <YAxis stroke={chartColors.text} fontSize={11} tickLine={false} tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(value) => [`KES ${formatKES(value as number)}`, 'Promised']} />
+              <Line type="monotone" dataKey="promised" stroke="#f59e0b" strokeWidth={2} dot={{ fill: '#f59e0b', strokeWidth: 0, r: 3 }} activeDot={{ r: 5 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </ChartCard>
 
-      {/* Recent Sessions Summary */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-indigo-500" />
-            <h3 className="font-semibold text-gray-900 dark:text-white">Quick Stats</h3>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {filteredHistory.filter(c => c.sentiment === 'positive').length}
-            </p>
-            <p className="text-sm text-green-600 dark:text-green-400">Happy Customers</p>
-          </div>
-          <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {filteredHistory.filter(c => c.promisesCount > 0).length}
-            </p>
-            <p className="text-sm text-blue-600 dark:text-blue-400">With Promises</p>
-          </div>
-          <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {Math.round(totalDuration / 60)}
-            </p>
-            <p className="text-sm text-purple-600 dark:text-purple-400">Total Minutes</p>
-          </div>
-          <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {totalPromised > 0 ? `${(totalPromised / totalCalls / 1000).toFixed(1)}K` : '0'}
-            </p>
-            <p className="text-sm text-amber-600 dark:text-amber-400">Avg Promise (KES)</p>
-          </div>
+      {/* Quick Stats */}
+      <div className="bg-white dark:bg-slate-800 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Quick Stats</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { value: filteredHistory.filter(c => c.sentiment === 'positive').length, label: 'Happy Customers', color: 'text-emerald-500' },
+            { value: filteredHistory.filter(c => c.promisesCount > 0).length, label: 'With Promises', color: 'text-sky-500' },
+            { value: Math.round(totalDuration / 60), label: 'Total Minutes', color: 'text-violet-500' },
+            { value: totalPromised > 0 ? `${(totalPromised / totalCalls / 1000).toFixed(1)}K` : '0', label: 'Avg Promise (KES)', color: 'text-amber-500', prefix: 'KES ' },
+          ].map((stat, i) => (
+            <div key={i} className="text-center p-3 bg-slate-50 dark:bg-slate-700 rounded-md">
+              <p className={cn('text-lg font-bold tabular-nums', stat.color)}>
+                {stat.prefix ? `${stat.prefix}${stat.value}` : stat.value}
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">{stat.label}</p>
+            </div>
+          ))}
         </div>
       </div>
+    </motion.div>
+  );
+}
+
+interface ChartCardProps {
+  icon: typeof Calendar | null;
+  title: string;
+  color: string;
+  children: React.ReactNode;
+}
+
+function ChartCard({ icon: Icon, title, children }: ChartCardProps) {
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-lg p-4">
+      {Icon && (
+        <div className="flex items-center gap-2 mb-3">
+          <Icon className="w-4 h-4 text-slate-500" />
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{title}</h3>
+        </div>
+      )}
+      {!Icon && (
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">{title}</h3>
+      )}
+      {children}
     </div>
   );
 }
@@ -401,38 +306,32 @@ interface MetricCardProps {
   value: string;
   subtext?: string;
   trend?: 'up' | 'down' | null;
-  color: 'blue' | 'purple' | 'green' | 'amber';
+  color: 'indigo' | 'violet' | 'emerald' | 'amber';
 }
 
 function MetricCard({ icon: Icon, label, value, subtext, trend, color }: MetricCardProps) {
   const colorClasses = {
-    blue: 'from-blue-500 to-blue-600 shadow-blue-500/25',
-    purple: 'from-purple-500 to-purple-600 shadow-purple-500/25',
-    green: 'from-green-500 to-green-600 shadow-green-500/25',
-    amber: 'from-amber-500 to-amber-600 shadow-amber-500/25',
+    indigo: 'from-indigo-500 to-indigo-600 shadow-indigo-500/20',
+    violet: 'from-violet-500 to-violet-600 shadow-violet-500/20',
+    emerald: 'from-emerald-500 to-emerald-600 shadow-emerald-500/20',
+    amber: 'from-amber-500 to-amber-600 shadow-amber-500/20',
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
-      <div className="flex items-center gap-3 mb-3">
-        <div className={cn(
-          'w-10 h-10 rounded-lg bg-gradient-to-br flex items-center justify-center shadow-lg',
-          colorClasses[color]
-        )}>
-          <Icon className="w-5 h-5 text-white" />
+    <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
+      <div className="flex items-center gap-2.5 mb-2">
+        <div className={cn('w-8 h-8 rounded-md bg-gradient-to-br flex items-center justify-center shadow-sm', colorClasses[color])}>
+          <Icon className="w-4 h-4 text-white" />
         </div>
-        <span className="text-sm text-gray-500 dark:text-gray-400">{label}</span>
+        <span className="text-[11px] text-slate-500 dark:text-slate-400">{label}</span>
       </div>
       <div className="flex items-end justify-between">
         <div>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
-          {subtext && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{subtext}</p>}
+          <p className="text-lg font-bold text-slate-900 dark:text-white tabular-nums">{value}</p>
+          {subtext && <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{subtext}</p>}
         </div>
         {trend && (
-          <TrendingUp className={cn(
-            'w-5 h-5',
-            trend === 'up' ? 'text-green-500' : 'text-red-500 rotate-180'
-          )} />
+          <TrendingUp className={cn('w-4 h-4', trend === 'up' ? 'text-emerald-500' : 'text-red-500 rotate-180')} />
         )}
       </div>
     </div>

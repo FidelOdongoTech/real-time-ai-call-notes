@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { 
   Mic, 
   MicOff,
@@ -14,7 +15,10 @@ import {
   X,
   BarChart3,
   Languages,
-  Globe
+  Globe,
+  Sparkles,
+  Activity,
+  Plus
 } from 'lucide-react';
 import { useCallStore } from './store/callStore';
 import { useSpeechRecognition } from './hooks/useSpeechRecognition';
@@ -30,6 +34,7 @@ import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { AudioUpload } from './components/AudioUpload';
 import type { Customer, Call, CallHistoryItem } from './types';
 import { cn } from './utils/cn';
+import { demoTemplates, type DemoTemplate } from './data/demoData';
 
 type View = 'dashboard' | 'history' | 'analytics';
 type InputMode = 'microphone' | 'text' | 'upload';
@@ -42,6 +47,7 @@ export function App() {
   const [textInput, setTextInput] = useState('');
   const [interimText, setInterimText] = useState('');
   const [language, setLanguage] = useState<AppLanguage>('en-KE');
+  const [isDemoRunning, setIsDemoRunning] = useState(false);
   
   const {
     currentCall,
@@ -60,7 +66,6 @@ export function App() {
 
   const timerRef = useRef<number | null>(null);
 
-  // Speech recognition hook
   const handleSpeechResult = useCallback((transcript: string, isFinal: boolean) => {
     if (!currentCall || currentCall.status !== 'active') return;
 
@@ -73,7 +78,6 @@ export function App() {
       });
       setInterimText('');
 
-      // Analyze the text for extraction
       const fullTranscript = currentCall.transcript.map(t => t.text).join(' ') + ' ' + transcript;
       const { extraction, hasSignificantContent } = analyzeText(transcript, fullTranscript);
       
@@ -103,7 +107,6 @@ export function App() {
     language: language,
   });
 
-  // Apply theme to document
   useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -112,7 +115,6 @@ export function App() {
     }
   }, [theme]);
 
-  // Timer for call duration
   useEffect(() => {
     if (currentCall?.status === 'active') {
       timerRef.current = window.setInterval(() => {
@@ -146,8 +148,6 @@ export function App() {
   const handleEndCall = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
     handleStopRecording();
-    
-    // Use AI to generate summary and next actions
     await endCallWithAI();
   };
 
@@ -175,7 +175,37 @@ export function App() {
     setTextInput('');
   };
 
-  // Handle audio transcription from Whisper
+  const startDemoSession = useCallback(async (template: DemoTemplate = 'cooperative') => {
+    setIsDemoRunning(true);
+    const demo = demoTemplates[template];
+    handleStartCall(demo.customer);
+
+    // Wait for call to be created
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Stream transcript entries with delays
+    for (const entry of demo.script) {
+      await new Promise(resolve => setTimeout(resolve, entry.delay));
+      addTranscriptEntry({
+        speaker: entry.speaker,
+        text: entry.text,
+        timestamp: Date.now(),
+        isFinal: true,
+      });
+
+      // Run extraction on each new entry
+      const state = useCallStore.getState();
+      const fullTranscript = state.currentCall?.transcript.map(t => t.text).join(' ') || '';
+      const { extraction } = analyzeText(entry.text, fullTranscript);
+      updateExtraction(extraction);
+    }
+
+    // Auto-end the call after all entries
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    setIsDemoRunning(false);
+    handleEndCall();
+  }, [handleStartCall, addTranscriptEntry, handleEndCall, analyzeText, updateExtraction]);
+
   const handleAudioTranscription = useCallback((text: string, _duration?: number) => {
     if (!currentCall) return;
     
@@ -215,93 +245,96 @@ export function App() {
     }
   };
 
+  const navItems = [
+    { id: 'dashboard' as View, label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'analytics' as View, label: 'Analytics', icon: BarChart3 },
+    { id: 'history' as View, label: 'History', icon: History, count: callHistory.length },
+  ];
+
   return (
     <div className={cn(
-      'min-h-screen transition-colors duration-200',
-      theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'
+      'h-screen flex flex-col transition-colors duration-300',
+      theme === 'dark' ? 'bg-slate-950' : 'bg-slate-50'
     )}>
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
-                <Mic className="w-5 h-5 text-white" />
+      <header className={cn(
+        'sticky top-0 z-40 border-b transition-colors duration-300',
+        theme === 'dark' ? 'bg-slate-950 border-slate-700/50' : 'bg-white border-slate-200/60'
+      )}>
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
+          <div className="flex items-center justify-between h-14">
+            <div className="flex items-center gap-8">
+              {/* Logo */}
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-sm">
+                  <Activity className="w-4 h-4 text-white" />
+                </div>
+                <div className="leading-none">
+                  <h1 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">CallNotes</h1>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">AI Platform</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-lg font-bold text-gray-900 dark:text-white">CallNotes AI</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Real-Time Transcription 🇰🇪</p>
-              </div>
+
+              {/* Navigation */}
+              <nav className="hidden sm:flex items-center gap-0.5">
+                {navItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setView(item.id)}
+                    className={cn(
+                      'relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200',
+                      view === item.id
+                        ? 'text-slate-900 dark:text-white'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                    )}
+                  >
+                    <item.icon className="w-4 h-4" />
+                    {item.label}
+                    {item.count !== undefined && item.count > 0 && (
+                      <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-semibold rounded-full">
+                        {item.count}
+                      </span>
+                    )}
+                    {view === item.id && (
+                      <motion.div
+                        layoutId="nav-active"
+                        className="absolute inset-0 rounded-md bg-slate-100 dark:bg-slate-800 -z-10"
+                        transition={{ type: 'spring', bounce: 0.2, duration: 0.3 }}
+                      />
+                    )}
+                  </button>
+                ))}
+              </nav>
             </div>
 
-            {/* Navigation */}
-            <nav className="flex items-center gap-1">
-              <button
-                onClick={() => setView('dashboard')}
-                className={cn(
-                  'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                  view === 'dashboard'
-                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                )}
-              >
-                <LayoutDashboard className="w-4 h-4" />
-                <span className="hidden sm:inline">Dashboard</span>
-              </button>
-              <button
-                onClick={() => setView('analytics')}
-                className={cn(
-                  'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                  view === 'analytics'
-                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                )}
-              >
-                <BarChart3 className="w-4 h-4" />
-                <span className="hidden sm:inline">Analytics</span>
-              </button>
-              <button
-                onClick={() => setView('history')}
-                className={cn(
-                  'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                  view === 'history'
-                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                )}
-              >
-                <History className="w-4 h-4" />
-                <span className="hidden sm:inline">History</span>
-                {callHistory.length > 0 && (
-                  <span className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs rounded-full">
-                    {callHistory.length}
-                  </span>
-                )}
-              </button>
-            </nav>
-
-            {/* Actions */}
             <div className="flex items-center gap-2">
               <button
                 onClick={handleLanguageChange}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all duration-200',
+                  theme === 'dark' ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                )}
                 title="Switch Language"
               >
-                <Languages className="w-4 h-4" />
+                <Languages className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{getLanguageLabel(language)}</span>
               </button>
               <button
                 onClick={toggleTheme}
-                className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                className={cn(
+                  'w-8 h-8 rounded-md flex items-center justify-center transition-all duration-200',
+                  theme === 'dark' ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                )}
               >
-                {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
+              <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1" />
               <button
                 onClick={() => setShowNewCallForm(true)}
                 disabled={currentCall?.status === 'active'}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-500/25"
+                className="flex items-center gap-2 px-3.5 py-1.5 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-md transition-all duration-200 active:scale-[0.97] shadow-sm"
               >
-                <Phone className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">New Session</span>
               </button>
             </div>
@@ -309,37 +342,92 @@ export function App() {
         </div>
       </header>
 
+      {/* Mobile Nav */}
+      <div className={cn(
+        'sm:hidden flex border-b transition-colors duration-300',
+        theme === 'dark' ? 'bg-slate-950 border-slate-700/50' : 'bg-white border-slate-200/60'
+      )}>
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => setView(item.id)}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors',
+              view === item.id
+                ? 'text-indigo-500 border-b-2 border-indigo-500'
+                : 'text-slate-500 dark:text-slate-400'
+            )}
+          >
+            <item.icon className="w-3.5 h-3.5" />
+            {item.label}
+          </button>
+        ))}
+      </div>
+
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {view === 'dashboard' ? (
-          <DashboardView
-            currentCall={currentCall}
-            isListening={isListening}
-            isSupported={isSupported}
-            speechError={speechError}
-            interimText={interimText}
-            inputMode={inputMode}
-            textInput={textInput}
-            language={language}
-            onInputModeChange={setInputMode}
-            onTextInputChange={setTextInput}
-            onTextSubmit={handleTextSubmit}
-            onAudioTranscription={handleAudioTranscription}
-            onStartRecording={handleStartRecording}
-            onStopRecording={handleStopRecording}
-            onEndCall={handleEndCall}
-            onCancelCall={handleCancelCall}
-            onNewCall={() => setShowNewCallForm(true)}
-            onLanguageChange={handleLanguageChange}
-          />
-        ) : view === 'analytics' ? (
-          <AnalyticsDashboard history={callHistory} />
-        ) : (
-          <HistoryView history={callHistory} />
-        )}
+      <main className="flex-1 overflow-hidden">
+        <div className="h-full max-w-[1400px] mx-auto px-4 sm:px-6 py-6">
+          <AnimatePresence mode="wait">
+            {view === 'dashboard' ? (
+              <motion.div
+                key="dashboard"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="h-full"
+              >
+              <DashboardView
+                currentCall={currentCall}
+                theme={theme}
+                isListening={isListening}
+                isSupported={isSupported}
+                speechError={speechError}
+                interimText={interimText}
+                inputMode={inputMode}
+                textInput={textInput}
+                language={language}
+                isDemoRunning={isDemoRunning}
+                onInputModeChange={setInputMode}
+                onTextInputChange={setTextInput}
+                onTextSubmit={handleTextSubmit}
+                onAudioTranscription={handleAudioTranscription}
+                onStartRecording={handleStartRecording}
+                onStopRecording={handleStopRecording}
+                onEndCall={handleEndCall}
+                onCancelCall={handleCancelCall}
+                onNewCall={() => setShowNewCallForm(true)}
+                onLanguageChange={handleLanguageChange}
+                onStartDemo={startDemoSession}
+              />
+              </motion.div>
+            ) : view === 'analytics' ? (
+              <motion.div
+                key="analytics"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="h-full overflow-y-auto"
+              >
+                <AnalyticsDashboard history={callHistory} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="history"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="h-full overflow-y-auto"
+              >
+                <CallHistory history={callHistory} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </main>
 
-      {/* New Call Modal */}
       {showNewCallForm && (
         <NewCallForm
           onStart={handleStartCall}
@@ -352,6 +440,7 @@ export function App() {
 
 interface DashboardViewProps {
   currentCall: Call | null;
+  theme: 'light' | 'dark';
   isListening: boolean;
   isSupported: boolean;
   speechError: string | null;
@@ -359,6 +448,7 @@ interface DashboardViewProps {
   inputMode: InputMode;
   textInput: string;
   language: AppLanguage;
+  isDemoRunning: boolean;
   onInputModeChange: (mode: InputMode) => void;
   onTextInputChange: (text: string) => void;
   onTextSubmit: () => void;
@@ -369,10 +459,12 @@ interface DashboardViewProps {
   onCancelCall: () => void;
   onNewCall: () => void;
   onLanguageChange: () => void;
+  onStartDemo: (template: DemoTemplate) => void;
 }
 
 function DashboardView({ 
   currentCall, 
+  theme,
   isListening,
   isSupported,
   speechError,
@@ -380,6 +472,7 @@ function DashboardView({
   inputMode,
   textInput,
   language,
+  isDemoRunning,
   onInputModeChange,
   onTextInputChange,
   onTextSubmit,
@@ -390,53 +483,79 @@ function DashboardView({
   onCancelCall,
   onNewCall,
   onLanguageChange,
+  onStartDemo,
 }: DashboardViewProps) {
 
   if (!currentCall) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-full flex items-center justify-center mb-6">
-          <Mic className="w-12 h-12 text-blue-500" />
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex flex-col items-center justify-center h-full px-4"
+      >
+        <div className="relative mb-6">
+          <div className="w-16 h-16 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+            <Mic className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+          </div>
+          <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-md bg-indigo-500 flex items-center justify-center shadow-sm">
+            <Sparkles className="w-3.5 h-3.5 text-white" />
+          </div>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">No Active Session</h2>
-        <p className="text-gray-500 dark:text-gray-400 mb-6 text-center max-w-md">
-          Start a new session to begin real-time transcription with live AI analysis and coaching.
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">No active session</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 text-center max-w-sm leading-relaxed">
+          Start a new session to begin real-time transcription with AI analysis and coaching.
         </p>
         
-        <div className="mb-6 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-          <Globe className="w-4 h-4" />
-          <span>Language: <strong>{language === 'sw-KE' ? 'Kiswahili' : 'English'}</strong></span>
+        <div className="mb-6 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-md border border-slate-200/60 dark:border-slate-700/50">
+          <Globe className="w-3.5 h-3.5" />
+          <span>Language: <span className="font-medium">{language === 'sw-KE' ? 'Kiswahili' : 'English'}</span></span>
           <button 
             onClick={onLanguageChange}
-            className="ml-2 text-blue-600 dark:text-blue-400 hover:underline"
+            className="ml-1 text-indigo-500 hover:text-indigo-600 font-medium"
           >
             Change
           </button>
         </div>
-        
+
         {!isSupported && (
-          <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg flex items-start gap-3 max-w-md">
-            <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+          <div className="mb-6 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-800/50 rounded-lg flex items-start gap-2.5 max-w-sm">
+            <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                Speech Recognition Not Supported
-              </p>
-              <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
-                Please use Chrome, Edge, or Safari for microphone transcription. 
-                You can still use text input or upload audio files for Whisper transcription.
+              <p className="text-xs font-medium text-amber-800 dark:text-amber-200">Speech Recognition Not Supported</p>
+              <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5 leading-relaxed">
+                Use Chrome, Edge, or Safari. You can still use text or audio upload.
               </p>
             </div>
           </div>
         )}
 
-        <button
-          onClick={onNewCall}
-          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25"
-        >
-          <Phone className="w-5 h-5" />
-          Start New Session
-        </button>
-      </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onNewCall}
+            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-lg transition-all duration-200 active:scale-[0.97] shadow-sm"
+          >
+            <Phone className="w-4 h-4" />
+            Start New Session
+          </button>
+          <button
+            onClick={() => onStartDemo('cooperative')}
+            disabled={isDemoRunning}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-lg transition-all duration-200 active:scale-[0.97]"
+          >
+            <Sparkles className="w-4 h-4" />
+            {isDemoRunning ? 'Running...' : 'Demo: Cooperative'}
+          </button>
+          <button
+            onClick={() => onStartDemo('hostile')}
+            disabled={isDemoRunning}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-slate-800 border border-red-200/60 dark:border-red-800/50 hover:bg-red-50 dark:hover:bg-red-900/10 disabled:opacity-50 disabled:cursor-not-allowed text-red-600 dark:text-red-400 text-sm font-semibold rounded-lg transition-all duration-200 active:scale-[0.97]"
+          >
+            <AlertCircle className="w-4 h-4" />
+            {isDemoRunning ? 'Running...' : 'Demo: Hostile'}
+          </button>
+        </div>
+      </motion.div>
     );
   }
 
@@ -450,221 +569,75 @@ function DashboardView({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Active Call Banner */}
+    <div className="h-full flex flex-col">
+      {/* Active Call Bar (stays at top) */}
       {isActive && (
-        <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl p-4 flex items-center justify-between shadow-lg">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="flex-shrink-0 flex items-center justify-between bg-slate-900 dark:bg-slate-800 rounded-lg px-4 py-3 mb-4"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-md bg-white/10 flex items-center justify-center">
               {isListening ? (
-                <Mic className="w-6 h-6 text-white animate-pulse" />
+                <Mic className="w-4 h-4 text-emerald-400" />
               ) : (
-                <MicOff className="w-6 h-6 text-white" />
+                <MicOff className="w-4 h-4 text-slate-400" />
               )}
             </div>
             <div>
-              <h3 className="text-white font-semibold text-lg">Session Active</h3>
-              <p className="text-green-100">with {currentCall.customer.name} • {language === 'sw-KE' ? '🇰🇪 Kiswahili' : '🇬🇧 English'}</p>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-white">Active session</span>
+                <span className="text-[10px] text-slate-400 bg-white/10 px-1.5 py-0.5 rounded">{language === 'sw-KE' ? '🇰🇪 Kiswahili' : '🇬🇧 English'}</span>
+              </div>
+              <p className="text-xs text-slate-400">with {currentCall.customer.name}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-lg text-white">
-              <Clock className="w-4 h-4" />
-              <span className="font-mono text-lg">{formatTime(currentCall.duration)}</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-white/10 px-2.5 py-1.5 rounded-md">
+              <Clock className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-sm font-mono font-semibold text-white tabular-nums">{formatTime(currentCall.duration)}</span>
             </div>
             {isListening && (
-              <span className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-lg text-white">
-                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                Recording
+              <span className="flex items-center gap-1.5 bg-emerald-500/20 px-2.5 py-1.5 rounded-md">
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                <span className="text-xs font-medium text-emerald-400">Recording</span>
               </span>
             )}
             <button
               onClick={onCancelCall}
-              className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white transition-colors"
+              className="w-7 h-7 rounded-md bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-400 transition-colors"
             >
-              <X className="w-5 h-5" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
-        </div>
+        </motion.div>
       )}
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Main Grid — fills remaining height, columns scroll independently on desktop */}
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Left Sidebar */}
-        <div className="lg:col-span-3 space-y-4">
+        <div className="lg:col-span-3 space-y-4 overflow-y-auto min-h-0">
           <CustomerInfo customer={currentCall.customer} />
           
-          {/* Recording Controls */}
           {isActive && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4">Input Mode</h3>
-              
-              {/* Mode Tabs */}
-              <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-700 rounded-lg mb-4">
-                <button
-                  onClick={() => onInputModeChange('microphone')}
-                  className={cn(
-                    'flex-1 flex items-center justify-center gap-1 py-2 px-3 rounded-md text-xs font-medium transition-colors',
-                    inputMode === 'microphone'
-                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400'
-                  )}
-                >
-                  <Mic className="w-3 h-3" />
-                  Mic
-                </button>
-                <button
-                  onClick={() => onInputModeChange('text')}
-                  className={cn(
-                    'flex-1 flex items-center justify-center gap-1 py-2 px-3 rounded-md text-xs font-medium transition-colors',
-                    inputMode === 'text'
-                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400'
-                  )}
-                >
-                  Text
-                </button>
-                <button
-                  onClick={() => onInputModeChange('upload')}
-                  className={cn(
-                    'flex-1 flex items-center justify-center gap-1 py-2 px-3 rounded-md text-xs font-medium transition-colors',
-                    inputMode === 'upload'
-                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400'
-                  )}
-                >
-                  <Upload className="w-3 h-3" />
-                  Audio
-                </button>
-              </div>
-
-              {/* Microphone Mode */}
-              {inputMode === 'microphone' && (
-                <div className="space-y-3">
-                  {!isSupported ? (
-                    <div className="p-3 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg text-xs text-yellow-700 dark:text-yellow-300">
-                      Speech recognition not supported. Use Chrome, Edge, or Safari.
-                    </div>
-                  ) : (
-                    <>
-                      <button
-                        onClick={isListening ? onStopRecording : onStartRecording}
-                        className={cn(
-                          'w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-colors',
-                          isListening
-                            ? 'bg-red-500 hover:bg-red-600 text-white'
-                            : 'bg-green-500 hover:bg-green-600 text-white'
-                        )}
-                      >
-                        {isListening ? (
-                          <>
-                            <MicOff className="w-5 h-5" />
-                            Stop Recording
-                          </>
-                        ) : (
-                          <>
-                            <Mic className="w-5 h-5" />
-                            Start Recording
-                          </>
-                        )}
-                      </button>
-                      
-                      {isListening && (
-                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="flex gap-0.5">
-                              <div className="w-1 h-3 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
-                              <div className="w-1 h-4 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
-                              <div className="w-1 h-2 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
-                              <div className="w-1 h-5 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '450ms' }} />
-                              <div className="w-1 h-3 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '600ms' }} />
-                            </div>
-                            <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                              {language === 'sw-KE' ? 'Inasikiliza...' : 'Listening...'}
-                            </span>
-                          </div>
-                          <p className="text-xs text-green-600 dark:text-green-400">
-                            {language === 'sw-KE' 
-                              ? 'Ongea wazi kwa sauti ya kawaida' 
-                              : 'Speak clearly at a normal volume'}
-                          </p>
-                        </div>
-                      )}
-                      
-                      {speechError && (
-                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-                          <div className="flex items-start gap-2">
-                            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                            <div className="flex-1">
-                              <p className="text-xs text-red-600 dark:text-red-400">{speechError}</p>
-                              <button
-                                onClick={onStartRecording}
-                                className="text-xs text-red-700 dark:text-red-300 underline mt-1 hover:no-underline"
-                              >
-                                {language === 'sw-KE' ? 'Jaribu tena' : 'Try again'}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {!isListening && !speechError && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
-                          <p className="font-medium">{language === 'sw-KE' ? 'Vidokezo:' : 'Tips:'}</p>
-                          <ul className="list-disc list-inside space-y-0.5">
-                            <li>{language === 'sw-KE' ? 'Tumia Chrome kwa matokeo bora' : 'Use Chrome for best results'}</li>
-                            <li>{language === 'sw-KE' ? 'Ruhusu ufikiaji wa maikrofoni' : 'Allow microphone access'}</li>
-                            <li>{language === 'sw-KE' ? 'Ongea wazi na polepole' : 'Speak clearly and steadily'}</li>
-                          </ul>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Text Mode */}
-              {inputMode === 'text' && (
-                <div className="space-y-3">
-                  <textarea
-                    value={textInput}
-                    onChange={(e) => onTextInputChange(e.target.value)}
-                    placeholder={language === 'sw-KE' ? 'Andika au bandika maandishi hapa...' : 'Type or paste text here...'}
-                    className="w-full h-24 p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button
-                    onClick={onTextSubmit}
-                    disabled={!textInput.trim()}
-                    className="w-full py-2 px-4 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
-                  >
-                    {language === 'sw-KE' ? 'Ongeza kwa Transcript' : 'Add to Transcript'}
-                  </button>
-                </div>
-              )}
-
-              {/* Upload Mode - Whisper Transcription */}
-              {inputMode === 'upload' && (
-                <AudioUpload
-                  onTranscriptionComplete={onAudioTranscription}
-                  language={language}
-                  disabled={false}
-                />
-              )}
-
-              {/* End Session Button */}
-              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                <button
-                  onClick={onEndCall}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors"
-                >
-                  <PhoneOff className="w-5 h-5" />
-                  {language === 'sw-KE' ? 'Maliza Kikao' : 'End Session'}
-                </button>
-              </div>
-            </div>
+            <CallControlsSection
+              inputMode={inputMode}
+              isListening={isListening}
+              isSupported={isSupported}
+              speechError={speechError}
+              textInput={textInput}
+              language={language}
+              onInputModeChange={onInputModeChange}
+              onTextInputChange={onTextInputChange}
+              onTextSubmit={onTextSubmit}
+              onAudioTranscription={onAudioTranscription}
+              onStartRecording={onStartRecording}
+              onStopRecording={onStopRecording}
+              onEndCall={onEndCall}
+            />
           )}
 
-          {/* Agent Coaching - Only show during active session */}
           {isActive && (
             <AgentCoaching
               isActive={isActive}
@@ -677,8 +650,8 @@ function DashboardView({
           )}
         </div>
 
-        {/* Center - Transcription */}
-        <div className="lg:col-span-5">
+        {/* Center - Transcript (scrolls internally) */}
+        <div className="lg:col-span-6 min-h-0">
           <TranscriptPanel
             transcript={currentCall.transcript}
             isActive={isActive && isListening}
@@ -687,8 +660,8 @@ function DashboardView({
           />
         </div>
 
-        {/* Right Sidebar - Extraction */}
-        <div className="lg:col-span-4">
+        {/* Right Sidebar - AI Insights (scrolls internally) */}
+        <div className="lg:col-span-3 min-h-0">
           <ExtractionPanel
             extraction={currentCall.extraction}
             isActive={isActive}
@@ -696,24 +669,184 @@ function DashboardView({
         </div>
       </div>
 
-      {/* Call Summary */}
+      {/* Call Summary (at bottom when completed) */}
       {isCompleted && currentCall.summary && (
-        <div className="mt-8">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex-shrink-0 mt-4"
+        >
           <CallSummary call={currentCall} />
-        </div>
+        </motion.div>
       )}
     </div>
   );
 }
 
-interface HistoryViewProps {
-  history: CallHistoryItem[];
+interface CallControlsSectionProps {
+  inputMode: InputMode;
+  isListening: boolean;
+  isSupported: boolean;
+  speechError: string | null;
+  textInput: string;
+  language: AppLanguage;
+  onInputModeChange: (mode: InputMode) => void;
+  onTextInputChange: (text: string) => void;
+  onTextSubmit: () => void;
+  onAudioTranscription: (text: string, duration?: number) => void;
+  onStartRecording: () => void;
+  onStopRecording: () => void;
+  onEndCall: () => void;
 }
 
-function HistoryView({ history }: HistoryViewProps) {
+function CallControlsSection({
+  inputMode,
+  isListening,
+  isSupported,
+  speechError,
+  textInput,
+  language,
+  onInputModeChange,
+  onTextInputChange,
+  onTextSubmit,
+  onAudioTranscription,
+  onStartRecording,
+  onStopRecording,
+  onEndCall,
+}: CallControlsSectionProps) {
   return (
-    <div className="max-w-4xl mx-auto">
-      <CallHistory history={history} />
-    </div>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white dark:bg-slate-800 rounded-lg p-4"
+    >
+      <h3 className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Input Mode</h3>
+      
+      {/* Mode Tabs */}
+      <div className="flex gap-0.5 p-0.5 bg-slate-100 dark:bg-slate-700 rounded-md mb-3">
+        {([
+          { value: 'microphone' as InputMode, icon: Mic, label: 'Mic' },
+          { value: 'text' as InputMode, icon: null, label: 'Text' },
+          { value: 'upload' as InputMode, icon: Upload, label: 'Audio' },
+        ]).map((mode) => (
+          <button
+            key={mode.value}
+            onClick={() => onInputModeChange(mode.value)}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-[4px] text-xs font-medium transition-all duration-200',
+              inputMode === mode.value
+                ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+            )}
+          >
+            {mode.icon && <mode.icon className="w-3 h-3" />}
+            {mode.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Microphone Mode */}
+      {inputMode === 'microphone' && (
+        <div className="space-y-2.5">
+          {!isSupported ? (
+            <div className="p-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-800/50 rounded-md text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+              Speech recognition not supported. Use Chrome, Edge, or Safari.
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={isListening ? onStopRecording : onStartRecording}
+                className={cn(
+                  'w-full flex items-center justify-center gap-2 py-2 px-3 rounded-md text-xs font-semibold transition-all duration-200 active:scale-[0.98]',
+                  isListening
+                    ? 'bg-red-500 hover:bg-red-600 text-white'
+                    : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                )}
+              >
+                {isListening ? (
+                  <><MicOff className="w-3.5 h-3.5" /> Stop Recording</>
+                ) : (
+                  <><Mic className="w-3.5 h-3.5" /> Start Recording</>
+                )}
+              </button>
+              
+              {isListening && (
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-800/50 rounded-md p-2.5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="flex gap-0.5">
+                      {[0, 1, 2, 3, 4].map((i) => (
+                        <div
+                          key={i}
+                          className="w-0.5 bg-emerald-500 rounded-full animate-pulse"
+                          style={{ height: `${[6, 8, 4, 10, 6][i]}px`, animationDelay: `${i * 150}ms` }}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                      {language === 'sw-KE' ? 'Inasikiliza...' : 'Listening...'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                    {language === 'sw-KE' ? 'Ongea wazi kwa sauti ya kawaida' : 'Speak clearly at a normal volume'}
+                  </p>
+                </div>
+              )}
+              
+              {speechError && (
+                <div className="flex items-start gap-2 p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200/60 dark:border-red-800/50 rounded-md">
+                  <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-[11px] text-red-600 dark:text-red-400">{speechError}</p>
+                    <button onClick={onStartRecording} className="text-[11px] text-red-700 dark:text-red-300 underline mt-0.5">
+                      {language === 'sw-KE' ? 'Jaribu tena' : 'Try again'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Text Mode */}
+      {inputMode === 'text' && (
+        <div className="space-y-2.5">
+          <textarea
+            value={textInput}
+            onChange={(e) => onTextInputChange(e.target.value)}
+            placeholder={language === 'sw-KE' ? 'Andika au bandika maandishi hapa...' : 'Type or paste text here...'}
+            className="w-full h-20 p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200/60 dark:border-slate-600/60 rounded-md text-xs text-slate-900 dark:text-white placeholder-slate-400 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all duration-200"
+          />
+          <button
+            onClick={onTextSubmit}
+            disabled={!textInput.trim()}
+            className="w-full py-2 px-3 bg-indigo-500 hover:bg-indigo-600 disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-md transition-all duration-200 active:scale-[0.98]"
+          >
+            {language === 'sw-KE' ? 'Ongeza kwa Transcript' : 'Add to Transcript'}
+          </button>
+        </div>
+      )}
+
+      {/* Upload Mode */}
+      {inputMode === 'upload' && (
+        <AudioUpload
+          onTranscriptionComplete={onAudioTranscription}
+          language={language}
+          disabled={false}
+        />
+      )}
+
+      {/* End Session */}
+      <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/50">
+        <button
+          onClick={onEndCall}
+          className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-md transition-all duration-200 active:scale-[0.98]"
+        >
+          <PhoneOff className="w-3.5 h-3.5" />
+          {language === 'sw-KE' ? 'Maliza Kikao' : 'End Session'}
+        </button>
+      </div>
+    </motion.div>
   );
 }

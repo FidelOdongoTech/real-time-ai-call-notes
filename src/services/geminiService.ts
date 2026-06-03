@@ -1,4 +1,7 @@
 // Gemini AI Service - Using REST API for better browser compatibility
+// Falls back to Groq (Llama 3) then keyword rules if Gemini fails
+import { groqCoachingSuggestions, groqGenerateSummary } from './groqFallbackService';
+
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
@@ -83,7 +86,7 @@ function cleanJsonResponse(text: string): string {
 
 export async function getAICoachingSuggestions(context: ConversationContext): Promise<CoachingSuggestion[]> {
   console.log('🎯 getAICoachingSuggestions called, transcript length:', context.transcript.length);
-  
+
   // Avoid duplicate calls while processing
   if (isProcessing) {
     console.log('⏳ Already processing, returning cached suggestions');
@@ -92,13 +95,11 @@ export async function getAICoachingSuggestions(context: ConversationContext): Pr
 
   // Need at least some content
   if (context.transcript.length < 15) {
-    console.log('📝 Transcript too short, returning empty');
     return [];
   }
 
   // Only call API if transcript has changed significantly (every 60 chars)
   if (context.transcript.length - lastAnalyzedLength < 60) {
-    console.log('📋 Not enough new content, returning cached suggestions');
     return lastSuggestions;
   }
 
@@ -126,10 +127,7 @@ Priority: urgent, important, normal`;
 
     const responseText = await callGeminiAPI(prompt);
     const cleanText = cleanJsonResponse(responseText);
-    
-    console.log('🔍 Cleaned response:', cleanText);
 
-    // Try to parse JSON
     const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
@@ -147,7 +145,6 @@ Priority: urgent, important, normal`;
       lastAnalyzedLength = context.transcript.length;
       lastSuggestions = suggestions;
       isProcessing = false;
-      
       console.log('✅ AI Suggestions generated:', suggestions.length);
       return suggestions;
     }
@@ -155,9 +152,24 @@ Priority: urgent, important, normal`;
     throw new Error('Could not parse JSON from response');
   } catch (error) {
     console.error('❌ Gemini coaching error:', error);
+
+    // Fallback #1: Try Groq (Llama 3)
+    try {
+      console.log('🔄 Attempting Groq fallback for coaching...');
+      const groqResult = await groqCoachingSuggestions(context);
+      lastSuggestions = groqResult;
+      lastAnalyzedLength = context.transcript.length;
+      isProcessing = false;
+      console.log('✅ Groq fallback coaching successful:', groqResult.length);
+      return groqResult;
+    } catch (groqError) {
+      console.error('❌ Groq fallback also failed:', groqError);
+    }
+
     isProcessing = false;
-    
-    // Return fallback suggestions based on keyword matching
+
+    // Fallback #2: Keyword-based rules
+    console.log('🔄 Using keyword fallback for coaching');
     const fallback = getFallbackSuggestions(context);
     lastSuggestions = fallback;
     lastAnalyzedLength = context.transcript.length;
@@ -381,8 +393,20 @@ NOT generic like "Follow up later" or "Review call"`;
     throw new Error('Failed to parse summary response');
   } catch (error) {
     console.error('❌ Gemini summary error:', error);
-    
-    // Return fallback summary
+
+    // Fallback #1: Try Groq (Llama 3)
+    try {
+      console.log('🔄 Attempting Groq fallback for summary...');
+      const groqResult = await groqGenerateSummary(
+        transcript, customerName, debtAmount, duration, existingExtractions
+      );
+      console.log('✅ Groq fallback summary successful');
+      return groqResult;
+    } catch (groqError) {
+      console.error('❌ Groq fallback summary also failed:', groqError);
+    }
+
+    // Fallback #2: Keyword-based summary
     return generateFallbackSummary(customerName, debtAmount, transcript, existingExtractions);
   }
 }

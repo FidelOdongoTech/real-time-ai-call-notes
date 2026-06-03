@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Upload, FileAudio, Loader2, CheckCircle, XCircle, Mic, Square } from 'lucide-react';
+import { cn } from '../utils/cn';
 import { transcribeAudioFile, TranscriptionProgress, AudioRecorder } from '../services/groqWhisperService';
 
 interface AudioUploadProps {
@@ -36,7 +37,6 @@ export const AudioUpload: React.FC<AudioUploadProps> = ({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile) {
       handleFile(droppedFile);
@@ -61,7 +61,6 @@ export const AudioUpload: React.FC<AudioUploadProps> = ({
         language === 'sw-KE' ? 'sw' : 'en',
         setProgress
       );
-
       onTranscriptionComplete(result.text, result.duration);
     } catch (err: any) {
       setError(err.message);
@@ -76,8 +75,6 @@ export const AudioUpload: React.FC<AudioUploadProps> = ({
       setIsRecording(true);
       setRecordingTime(0);
       setError(null);
-
-      // Start timer
       timerRef.current = window.setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
@@ -88,27 +85,20 @@ export const AudioUpload: React.FC<AudioUploadProps> = ({
 
   const stopRecording = async () => {
     if (!recorderRef.current) return;
-
     try {
-      // Stop timer
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
-
       const audioFile = await recorderRef.current.stop();
       setIsRecording(false);
       setFile(audioFile);
-      
-      // Transcribe the recorded audio
       setProgress({ status: 'uploading', progress: 0, message: 'Processing recording...' });
-      
       const result = await transcribeAudioFile(
         audioFile,
         language === 'sw-KE' ? 'sw' : 'en',
         setProgress
       );
-
       onTranscriptionComplete(result.text, result.duration);
     } catch (err: any) {
       setError(err.message);
@@ -133,44 +123,41 @@ export const AudioUpload: React.FC<AudioUploadProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Recording Option */}
-      <div className="flex items-center justify-center gap-4">
+    <div className="space-y-3">
+      <div className="flex items-center justify-center gap-3">
         {!isRecording ? (
           <button
             onClick={startRecording}
             disabled={disabled || progress?.status === 'processing'}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-500 text-white rounded-lg transition-colors"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-red-500 hover:bg-red-600 disabled:bg-slate-400 text-white text-xs font-semibold rounded-md transition-all active:scale-[0.98]"
           >
-            <Mic className="w-5 h-5" />
-            Record Audio
+            <Mic className="w-3.5 h-3.5" />
+            Record
           </button>
         ) : (
           <button
             onClick={stopRecording}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors animate-pulse"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-md transition-all"
           >
-            <Square className="w-5 h-5" />
-            Stop Recording ({formatTime(recordingTime)})
+            <Square className="w-3.5 h-3.5" />
+            Stop ({formatTime(recordingTime)})
           </button>
         )}
-        <span className="text-gray-500 dark:text-gray-400">or</span>
+        <span className="text-xs text-slate-500 dark:text-slate-400">or</span>
       </div>
 
-      {/* File Upload Area */}
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => !disabled && fileInputRef.current?.click()}
-        className={`
-          relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
-          ${isDragging 
-            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-            : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500'
-          }
-          ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-        `}
+        className={cn(
+          'relative border border-dashed rounded-md p-6 text-center cursor-pointer transition-all duration-200',
+          isDragging 
+            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' 
+            : 'border-slate-300/60 dark:border-slate-600/60 hover:border-indigo-400 dark:hover:border-indigo-500',
+          disabled ? 'opacity-50 cursor-not-allowed' : ''
+        )}
       >
         <input
           ref={fileInputRef}
@@ -182,78 +169,57 @@ export const AudioUpload: React.FC<AudioUploadProps> = ({
         />
 
         {progress ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {progress.status === 'completed' ? (
-              <CheckCircle className="w-12 h-12 text-green-500 mx-auto" />
+              <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto" />
             ) : progress.status === 'error' ? (
-              <XCircle className="w-12 h-12 text-red-500 mx-auto" />
+              <XCircle className="w-8 h-8 text-red-500 mx-auto" />
             ) : (
-              <Loader2 className="w-12 h-12 text-blue-500 mx-auto animate-spin" />
+              <Loader2 className="w-8 h-8 text-indigo-500 mx-auto animate-spin" />
             )}
-            
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {progress.message}
-            </p>
-            
+            <p className="text-xs font-medium text-slate-700 dark:text-slate-300">{progress.message}</p>
             {progress.status !== 'error' && progress.status !== 'completed' && (
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div 
-                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${progress.progress}%` }}
-                />
+              <div className="w-full bg-slate-200/60 dark:bg-slate-700 rounded-full h-1.5">
+                <div className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${progress.progress}%` }} />
               </div>
             )}
-
             {progress.status === 'completed' && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  resetUpload();
-                }}
-                className="text-sm text-blue-600 hover:underline"
-              >
+              <button onClick={(e) => { e.stopPropagation(); resetUpload(); }} className="text-[11px] text-indigo-500 hover:underline">
                 Upload another file
               </button>
             )}
           </div>
         ) : (
           <>
-            <div className="flex justify-center mb-4">
+            <div className="flex justify-center mb-2">
               {file ? (
-                <FileAudio className="w-12 h-12 text-blue-500" />
+                <FileAudio className="w-8 h-8 text-indigo-500" />
               ) : (
-                <Upload className="w-12 h-12 text-gray-400" />
+                <Upload className="w-8 h-8 text-slate-400" />
               )}
             </div>
-            
-            <p className="text-gray-700 dark:text-gray-300 font-medium">
+            <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
               {file ? file.name : 'Drop audio file here or click to upload'}
             </p>
-            
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
               Supports: MP3, WAV, WebM, M4A, OGG, FLAC (max 25MB)
             </p>
           </>
         )}
       </div>
 
-      {/* Error Message */}
       {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg">
-          <XCircle className="w-5 h-5 flex-shrink-0" />
-          <p className="text-sm">{error}</p>
-          <button
-            onClick={resetUpload}
-            className="ml-auto text-sm underline hover:no-underline"
-          >
+        <div className="flex items-center gap-2 p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200/60 dark:border-red-800/50 rounded-md">
+          <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+          <button onClick={resetUpload} className="ml-auto text-xs text-red-700 dark:text-red-300 underline">
             Try again
           </button>
         </div>
       )}
 
-      {/* Info */}
-      <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-        🎤 Audio is transcribed using Whisper AI via Groq (free & fast!)
+      <p className="text-[10px] text-slate-500 dark:text-slate-400 text-center">
+        Audio transcribed using Whisper AI via Groq
       </p>
     </div>
   );

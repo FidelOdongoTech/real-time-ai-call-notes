@@ -7,10 +7,10 @@ import {
   TrendingDown, 
   Minus,
   Calendar,
-  Tag
+  Tag,
+  BrainCircuit
 } from 'lucide-react';
 
-// Format number with Kenyan locale
 const formatKES = (amount: number) => {
   return new Intl.NumberFormat('en-KE').format(amount);
 };
@@ -24,12 +24,15 @@ interface ExtractionPanelProps {
 
 export function ExtractionPanel({ extraction, isActive }: ExtractionPanelProps) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 h-full overflow-hidden flex flex-col">
-      <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-        <h3 className="font-semibold text-gray-900 dark:text-white">AI Insights</h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          {isActive ? 'Analyzing in real-time...' : 'Call analysis'}
-        </p>
+    <div className="bg-white dark:bg-slate-800 rounded-lg flex flex-col h-full min-h-[500px]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-700/50">
+        <div className="flex items-center gap-2">
+          <BrainCircuit className="w-4 h-4 text-indigo-500" />
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">AI Intelligence</h3>
+          {isActive && (
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -41,16 +44,16 @@ export function ExtractionPanel({ extraction, isActive }: ExtractionPanelProps) 
 
         {/* Keywords */}
         {extraction.keywords.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Tag className="w-4 h-4 text-gray-500" />
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Keywords Detected</h4>
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Tag className="w-3.5 h-3.5 text-slate-400" />
+              <h4 className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Keywords</h4>
             </div>
             <div className="flex flex-wrap gap-1">
               {extraction.keywords.map((keyword, i) => (
                 <span 
                   key={i}
-                  className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-full"
+                  className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-medium rounded"
                 >
                   {keyword}
                 </span>
@@ -64,19 +67,18 @@ export function ExtractionPanel({ extraction, isActive }: ExtractionPanelProps) 
           title="Promises Made"
           icon={HandCoins}
           items={extraction.promises}
-          color="green"
+          color="emerald"
           renderItem={(promise: Promise) => (
-            <div key={promise.id} className="space-y-1">
-              <p className="text-sm text-gray-700 dark:text-gray-300">{promise.description}</p>
-              <div className="flex items-center gap-3 text-xs">
+            <div key={promise.id} className="space-y-0.5">
+              <p className="text-xs text-slate-700 dark:text-slate-300">{promise.description}</p>
+              <div className="flex items-center gap-2">
                 {promise.amount && (
-                  <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                    <span className="text-xs font-bold">KES</span>
-                    {formatKES(promise.amount)}
+                  <span className="flex items-center gap-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                    KES {formatKES(promise.amount)}
                   </span>
                 )}
                 {promise.dueDate && (
-                  <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                  <span className="flex items-center gap-0.5 text-[11px] text-sky-600 dark:text-sky-400">
                     <Calendar className="w-3 h-3" />
                     {promise.dueDate}
                   </span>
@@ -91,23 +93,23 @@ export function ExtractionPanel({ extraction, isActive }: ExtractionPanelProps) 
           title="Objections Raised"
           icon={AlertCircle}
           items={extraction.objections}
-          color="yellow"
+          color="amber"
           renderItem={(objection: Objection) => (
-            <div key={objection.id} className="space-y-1">
-              <div className="flex items-center gap-2">
+            <div key={objection.id} className="space-y-0.5">
+              <div className="flex items-center gap-1.5">
                 <span className={cn(
-                  'text-xs px-2 py-0.5 rounded-full font-medium capitalize',
+                  'text-[10px] px-1.5 py-0.5 rounded font-medium capitalize',
                   objection.severity === 'high' && 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300',
-                  objection.severity === 'medium' && 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300',
-                  objection.severity === 'low' && 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                  objection.severity === 'medium' && 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
+                  objection.severity === 'low' && 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
                 )}>
                   {objection.severity}
                 </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 capitalize">
                   {objection.type.replace('_', ' ')}
                 </span>
               </div>
-              <p className="text-sm text-gray-700 dark:text-gray-300">{objection.description}</p>
+              <p className="text-xs text-slate-700 dark:text-slate-300">{objection.description}</p>
             </div>
           )}
         />
@@ -117,29 +119,29 @@ export function ExtractionPanel({ extraction, isActive }: ExtractionPanelProps) 
           title="Agreements Reached"
           icon={Handshake}
           items={extraction.agreements}
-          color="blue"
+          color="sky"
           renderItem={(agreement: Agreement) => (
-            <div key={agreement.id} className="space-y-1">
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium capitalize">
+            <div key={agreement.id} className="space-y-0.5">
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 font-medium capitalize">
                 {agreement.type.replace('_', ' ')}
               </span>
-              <p className="text-sm text-gray-700 dark:text-gray-300">{agreement.details}</p>
+              <p className="text-xs text-slate-700 dark:text-slate-300">{agreement.details}</p>
             </div>
           )}
         />
 
         {/* Key Quotes */}
         {extraction.keyQuotes.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Quote className="w-4 h-4 text-purple-500" />
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Key Quotes</h4>
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Quote className="w-3.5 h-3.5 text-slate-400" />
+              <h4 className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Key Quotes</h4>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {extraction.keyQuotes.slice(-3).map((quote, i) => (
                 <blockquote 
                   key={i}
-                  className="text-sm italic text-gray-600 dark:text-gray-400 border-l-2 border-purple-300 dark:border-purple-600 pl-3"
+                  className="text-xs italic text-slate-500 dark:text-slate-400 border-l-2 border-indigo-300 dark:border-indigo-600 pl-2.5 leading-relaxed"
                 >
                   "{quote}"
                 </blockquote>
@@ -153,8 +155,9 @@ export function ExtractionPanel({ extraction, isActive }: ExtractionPanelProps) 
          extraction.objections.length === 0 && 
          extraction.agreements.length === 0 && 
          extraction.keyQuotes.length === 0 && (
-          <div className="text-center py-8 text-gray-400 dark:text-gray-500">
-            <p className="text-sm">
+          <div className="text-center py-8 text-slate-400 dark:text-slate-500">
+            <BrainCircuit className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+            <p className="text-xs leading-relaxed">
               {isActive 
                 ? 'Start speaking to see AI insights appear here...'
                 : 'No significant data extracted yet'}
@@ -175,22 +178,22 @@ function SentimentCard({ sentiment, score }: SentimentCardProps) {
   const config = {
     positive: {
       icon: TrendingUp,
-      color: 'text-green-600 dark:text-green-400',
-      bg: 'bg-green-50 dark:bg-green-900/30',
-      bar: 'bg-green-500',
+      color: 'text-emerald-600 dark:text-emerald-400',
+      bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+      bar: 'bg-emerald-500',
       label: 'Positive',
     },
     neutral: {
       icon: Minus,
-      color: 'text-gray-600 dark:text-gray-400',
-      bg: 'bg-gray-50 dark:bg-gray-700/50',
-      bar: 'bg-gray-500',
+      color: 'text-slate-500 dark:text-slate-400',
+      bg: 'bg-slate-100 dark:bg-slate-700/80',
+      bar: 'bg-slate-400',
       label: 'Neutral',
     },
     negative: {
       icon: TrendingDown,
       color: 'text-red-600 dark:text-red-400',
-      bg: 'bg-red-50 dark:bg-red-900/30',
+      bg: 'bg-red-50 dark:bg-red-900/20',
       bar: 'bg-red-500',
       label: 'Negative',
     },
@@ -199,15 +202,15 @@ function SentimentCard({ sentiment, score }: SentimentCardProps) {
   const { icon: Icon, color, bg, bar, label } = config[sentiment];
 
   return (
-    <div className={cn('rounded-lg p-3', bg)}>
+    <div className={cn('rounded-md p-3', bg)}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <Icon className={cn('w-4 h-4', color)} />
-          <span className={cn('text-sm font-medium', color)}>{label}</span>
+          <Icon className={cn('w-3.5 h-3.5', color)} />
+          <span className={cn('text-xs font-semibold', color)}>{label}</span>
         </div>
-        <span className={cn('text-lg font-bold', color)}>{score}%</span>
+        <span className={cn('text-sm font-bold tabular-nums', color)}>{score}%</span>
       </div>
-      <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-white/50 dark:bg-slate-700/80 rounded-full overflow-hidden">
         <div 
           className={cn('h-full rounded-full transition-all duration-500', bar)}
           style={{ width: `${score}%` }}
@@ -221,50 +224,50 @@ interface ExtractSectionProps<T> {
   title: string;
   icon: typeof HandCoins;
   items: T[];
-  color: 'green' | 'yellow' | 'blue';
+  color: 'emerald' | 'amber' | 'sky';
   renderItem: (item: T) => React.ReactNode;
 }
 
 function ExtractSection<T>({ title, icon: Icon, items, color, renderItem }: ExtractSectionProps<T>) {
   const colors = {
-    green: {
-      icon: 'text-green-500',
-      badge: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300',
-      border: 'border-green-200 dark:border-green-800',
+    emerald: {
+      icon: 'text-emerald-500',
+      badge: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
+      border: 'border-emerald-200 dark:border-emerald-800',
     },
-    yellow: {
-      icon: 'text-yellow-500',
-      badge: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300',
-      border: 'border-yellow-200 dark:border-yellow-800',
+    amber: {
+      icon: 'text-amber-500',
+      badge: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
+      border: 'border-amber-200 dark:border-amber-800',
     },
-    blue: {
-      icon: 'text-blue-500',
-      badge: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
-      border: 'border-blue-200 dark:border-blue-800',
+    sky: {
+      icon: 'text-sky-500',
+      badge: 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300',
+      border: 'border-sky-200 dark:border-sky-800',
     },
   };
 
   const c = colors[color];
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon className={cn('w-4 h-4', c.icon)} />
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{title}</h4>
+        <div className="flex items-center gap-1.5">
+          <Icon className={cn('w-3.5 h-3.5', c.icon)} />
+          <h4 className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{title}</h4>
         </div>
         {items.length > 0 && (
-          <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', c.badge)}>
+          <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', c.badge)}>
             {items.length}
           </span>
         )}
       </div>
       {items.length > 0 ? (
-        <div className={cn('space-y-2 pl-3 border-l-2', c.border)}>
+        <div className={cn('space-y-1.5 pl-3 border-l-2', c.border)}>
           {items.map((item) => renderItem(item))}
         </div>
       ) : (
-        <p className="text-xs text-gray-400 dark:text-gray-500 pl-6">No {title.toLowerCase()} yet</p>
+        <p className="text-[11px] text-slate-400 dark:text-slate-500">No {title.toLowerCase()} yet</p>
       )}
     </div>
   );

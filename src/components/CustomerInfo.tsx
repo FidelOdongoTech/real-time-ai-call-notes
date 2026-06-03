@@ -1,4 +1,4 @@
-import { Phone, Hash, User } from 'lucide-react';
+import { Phone, Hash, User, Building2, CreditCard } from 'lucide-react';
 import type { Customer } from '../types';
 import { cn } from '../utils/cn';
 
@@ -7,7 +7,6 @@ interface CustomerInfoProps {
   compact?: boolean;
 }
 
-// Format number with Kenyan locale
 const formatKES = (amount: number) => {
   return new Intl.NumberFormat('en-KE').format(amount);
 };
@@ -15,44 +14,57 @@ const formatKES = (amount: number) => {
 export function CustomerInfo({ customer, compact = false }: CustomerInfoProps) {
   if (compact) {
     return (
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold">
+      <div className="flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center text-white text-xs font-semibold">
           {customer.name.charAt(0)}
         </div>
         <div>
-          <p className="font-medium text-gray-900 dark:text-white">{customer.name}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{customer.phone}</p>
+          <p className="text-sm font-medium text-slate-900 dark:text-white">{customer.name}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{customer.phone}</p>
         </div>
       </div>
     );
   }
 
+  const statusColor = customer.debtAmount > 0 ? 'text-rose-500' : 'text-emerald-500';
+  const statusBadge = customer.debtAmount > 0 ? 'bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400';
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
-      <div className="flex items-center gap-4 mb-4">
-        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl font-semibold shadow-lg">
-          {customer.name.charAt(0)}
-        </div>
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{customer.name}</h2>
-          <p className="text-gray-500 dark:text-gray-400">Customer</p>
+    <div className="bg-white dark:bg-slate-800 rounded-lg overflow-hidden">
+      {/* Profile Header */}
+      <div className="px-4 pt-4 pb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center text-white text-base font-semibold shadow-sm">
+            {customer.name.charAt(0)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-white truncate">{customer.name}</h2>
+              <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-full', statusBadge)}>
+                {customer.debtAmount > 0 ? 'Outstanding' : 'Cleared'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Customer Profile</p>
+          </div>
         </div>
       </div>
-      
-      <div className="space-y-3">
+
+      {/* Info Grid */}
+      <div className="px-4 pb-4 space-y-2">
         <InfoRow icon={Phone} label="Phone" value={customer.phone} />
         <InfoRow icon={Hash} label="Account" value={customer.accountNumber} />
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
-            <span className="text-xs font-bold">KES</span>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Outstanding</p>
-            <p className="font-medium text-red-600 dark:text-red-400">
-              KES {formatKES(customer.debtAmount)}
-            </p>
-          </div>
+        <InfoRow icon={Building2} label="Branch" value="Nairobi" />
+      </div>
+
+      {/* Debt Section */}
+      <div className="mx-4 mb-4 p-3 bg-slate-50 dark:bg-slate-700 rounded-md">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Outstanding Balance</span>
+          <CreditCard className={cn('w-3.5 h-3.5', statusColor)} />
         </div>
+        <p className={cn('text-lg font-bold tabular-nums', statusColor)}>
+          KES {formatKES(customer.debtAmount)}
+        </p>
       </div>
     </div>
   );
@@ -66,16 +78,13 @@ interface InfoRowProps {
 
 function InfoRow({ icon: Icon, label, value }: InfoRowProps) {
   return (
-    <div className="flex items-center gap-3">
-      <div className={cn(
-        "w-8 h-8 rounded-lg flex items-center justify-center",
-        "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-      )}>
-        <Icon className="w-4 h-4" />
+    <div className="flex items-center gap-2.5">
+      <div className="w-7 h-7 rounded-md bg-slate-100 dark:bg-slate-700/80 flex items-center justify-center text-slate-400 dark:text-slate-500">
+        <Icon className="w-3.5 h-3.5" />
       </div>
       <div>
-        <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-        <p className="font-medium text-gray-900 dark:text-white">{value}</p>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">{label}</p>
+        <p className="text-xs font-medium text-slate-900 dark:text-white">{value}</p>
       </div>
     </div>
   );

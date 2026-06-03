@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   History, 
   Search, 
@@ -7,13 +8,17 @@ import {
   TrendingUp, 
   TrendingDown, 
   Minus, 
-  ChevronRight,
+  ChevronLeft,
   Phone,
   BarChart3,
   Trash2,
-  FileText
+  FileText,
+  MessageSquare,
+  BrainCircuit,
+  Handshake,
+  AlertCircle
 } from 'lucide-react';
-import type { CallHistoryItem, Sentiment } from '../types';
+import type { CallHistoryItem, Call, Sentiment } from '../types';
 import { cn } from '../utils/cn';
 import { useCallStore } from '../store/callStore';
 
@@ -22,7 +27,6 @@ interface CallHistoryProps {
   onSelectCall?: (call: CallHistoryItem) => void;
 }
 
-// Format number with Kenyan locale
 const formatKES = (amount: number) => {
   return new Intl.NumberFormat('en-KE').format(amount);
 };
@@ -30,7 +34,9 @@ const formatKES = (amount: number) => {
 export function CallHistory({ history, onSelectCall }: CallHistoryProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { clearHistory } = useCallStore();
+  const [viewDetailId, setViewDetailId] = useState<string | null>(null);
+  const { clearHistory, getCallDetail } = useCallStore();
+  const detailCall = viewDetailId ? getCallDetail(viewDetailId) : null;
 
   const filteredHistory = history.filter((call) =>
     call.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -38,7 +44,6 @@ export function CallHistory({ history, onSelectCall }: CallHistoryProps) {
     (call.fullTranscript?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // Analytics
   const totalCalls = history.length;
   const avgSentimentScore = history.length > 0
     ? Math.round(
@@ -55,14 +60,104 @@ export function CallHistory({ history, onSelectCall }: CallHistoryProps) {
     onSelectCall?.(call);
   };
 
+  if (viewDetailId && detailCall) {
+    return (
+      <div className="bg-white dark:bg-slate-800 rounded-lg flex flex-col max-w-4xl mx-auto">
+        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700/50 flex items-center gap-3">
+          <button
+            onClick={() => setViewDetailId(null)}
+            className="w-7 h-7 rounded-md bg-slate-100 dark:bg-slate-700 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4 text-slate-500" />
+          </button>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{detailCall.customer.name}</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{format(new Date(detailCall.startedAt), 'MMM d, yyyy h:mm a')}</p>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Transcript */}
+          <div>
+            <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 mb-2">
+              <MessageSquare className="w-3.5 h-3.5 text-indigo-500" />
+              Transcript
+            </h4>
+            {detailCall.transcript.length > 0 ? (
+              <div className="space-y-2">
+                {detailCall.transcript.map((entry) => (
+                  <div key={entry.id} className="flex gap-2 text-xs">
+                    <span className="text-[10px] font-medium text-slate-400 w-12 flex-shrink-0 pt-0.5">
+                      {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <div className="flex-1 p-2 rounded-md bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-300 leading-relaxed">
+                      {entry.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No transcript recorded</p>
+            )}
+          </div>
+
+          {/* Extraction */}
+          <div>
+            <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 mb-2">
+              <BrainCircuit className="w-3.5 h-3.5 text-indigo-500" />
+              AI Extraction
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+              <DetailStat label="Promises" value={String(detailCall.extraction.promises.length)} icon={Handshake} color="text-emerald-500" />
+              <DetailStat label="Objections" value={String(detailCall.extraction.objections.length)} icon={AlertCircle} color="text-red-500" />
+              <DetailStat label="Agreements" value={String(detailCall.extraction.agreements.length)} icon={Handshake} color="text-sky-500" />
+            </div>
+            {detailCall.extraction.keywords.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {detailCall.extraction.keywords.map((kw, i) => (
+                  <span key={i} className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-[10px] text-slate-600 dark:text-slate-400 rounded-full">
+                    {kw}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Summary */}
+          {detailCall.summary && (
+            <div>
+              <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">Summary</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed bg-slate-50 dark:bg-slate-700 p-3 rounded-md">
+                {detailCall.summary.summaryText}
+              </p>
+              {detailCall.summary.nextActions.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">Next Actions:</p>
+                  <ul className="space-y-1">
+                    {detailCall.summary.nextActions.map((action, i) => (
+                      <li key={i} className="flex items-start gap-1.5 text-[11px] text-slate-600 dark:text-slate-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1 flex-shrink-0" />
+                        {action}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 h-full flex flex-col">
+    <div className="bg-white dark:bg-slate-800 rounded-lg flex flex-col max-w-3xl mx-auto">
       {/* Header */}
-      <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-4">
+      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700/50">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <History className="w-5 h-5 text-indigo-500" />
-            <h3 className="font-semibold text-gray-900 dark:text-white">Session History</h3>
+            <History className="w-4 h-4 text-slate-500" />
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Session History</h3>
           </div>
           {history.length > 0 && (
             <button
@@ -71,7 +166,7 @@ export function CallHistory({ history, onSelectCall }: CallHistoryProps) {
                   clearHistory();
                 }
               }}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-[11px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
             >
               <Trash2 className="w-3 h-3" />
               Clear All
@@ -79,70 +174,68 @@ export function CallHistory({ history, onSelectCall }: CallHistoryProps) {
           )}
         </div>
         
-        {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <input
             type="text"
             placeholder="Search by name, account, or transcript..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-700 border border-slate-200/60 dark:border-slate-600/60 rounded-md text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
           />
         </div>
       </div>
 
       {/* Analytics Summary */}
       {history.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 p-4 border-b border-gray-100 dark:border-gray-700">
-          <div className="text-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <Phone className="w-4 h-4 text-blue-500 mx-auto mb-1" />
-            <p className="text-lg font-bold text-gray-900 dark:text-white">{totalCalls}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Total Sessions</p>
-          </div>
-          <div className="text-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <BarChart3 className="w-4 h-4 text-green-500 mx-auto mb-1" />
-            <p className="text-lg font-bold text-gray-900 dark:text-white">{avgSentimentScore}%</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Avg Sentiment</p>
-          </div>
-          <div className="text-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <span className="text-purple-500 font-bold text-xs">KES</span>
-            <p className="text-lg font-bold text-gray-900 dark:text-white">
-              {totalPromised > 0 ? `${(totalPromised / 1000).toFixed(1)}K` : '0'}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Promised</p>
-          </div>
+        <div className="grid grid-cols-3 gap-2 px-4 py-3 border-b border-slate-100 dark:border-slate-700/50">
+          {[
+            { icon: Phone, value: totalCalls.toString(), label: 'Total Sessions', color: 'text-slate-500' },
+            { icon: BarChart3, value: `${avgSentimentScore}%`, label: 'Avg Sentiment', color: avgSentimentScore >= 60 ? 'text-emerald-500' : avgSentimentScore >= 40 ? 'text-amber-500' : 'text-red-500' },
+            { icon: null, value: totalPromised > 0 ? `${(totalPromised / 1000).toFixed(1)}K` : '0', label: 'Promised', color: 'text-emerald-500', prefix: 'KES ' },
+          ].map((stat, i) => (
+            <div key={i} className="text-center p-2 bg-slate-50 dark:bg-slate-700 rounded-md">
+              {stat.icon && <stat.icon className={cn('w-3.5 h-3.5 mx-auto mb-0.5', stat.color)} />}
+              {stat.prefix && <span className="text-[10px] font-bold text-emerald-500">KES</span>}
+              <p className={cn('text-sm font-bold tabular-nums', stat.color)}>
+                {stat.prefix ? `${stat.prefix}${stat.value}` : stat.value}
+              </p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">{stat.label}</p>
+            </div>
+          ))}
         </div>
       )}
 
       {/* Call List */}
       <div className="flex-1 overflow-y-auto">
         {filteredHistory.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 text-gray-400 dark:text-gray-500">
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400 dark:text-slate-500">
             {history.length === 0 ? (
               <>
-                <FileText className="w-10 h-10 mb-2 opacity-50" />
-                <p className="text-sm">No sessions yet</p>
-                <p className="text-xs mt-1">Start a new session to see history here</p>
+                <FileText className="w-8 h-8 mb-2 opacity-50" />
+                <p className="text-xs">No sessions yet</p>
               </>
             ) : (
               <>
-                <Search className="w-10 h-10 mb-2 opacity-50" />
-                <p className="text-sm">No matching sessions found</p>
+                <Search className="w-8 h-8 mb-2 opacity-50" />
+                <p className="text-xs">No matching sessions found</p>
               </>
             )}
           </div>
         ) : (
-          <div className="divide-y divide-gray-100 dark:divide-gray-700">
-            {filteredHistory.map((call) => (
-              <CallHistoryCard
-                key={call.id}
-                call={call}
-                isSelected={selectedId === call.id}
-                onClick={() => handleSelectCall(call)}
-              />
-            ))}
-          </div>
+          <AnimatePresence>
+            <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
+              {filteredHistory.map((call) => (
+                <CallHistoryCard
+                  key={call.id}
+                  call={call}
+                  isSelected={selectedId === call.id}
+                  onViewDetail={() => setViewDetailId(call.id)}
+                  onClick={() => handleSelectCall(call)}
+                />
+              ))}
+            </div>
+          </AnimatePresence>
         )}
       </div>
     </div>
@@ -153,9 +246,10 @@ interface CallHistoryCardProps {
   call: CallHistoryItem;
   isSelected: boolean;
   onClick: () => void;
+  onViewDetail: () => void;
 }
 
-function CallHistoryCard({ call, isSelected, onClick }: CallHistoryCardProps) {
+function CallHistoryCard({ call, isSelected, onClick, onViewDetail }: CallHistoryCardProps) {
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -163,52 +257,70 @@ function CallHistoryCard({ call, isSelected, onClick }: CallHistoryCardProps) {
   };
 
   const sentimentConfig: Record<Sentiment, { icon: typeof TrendingUp; color: string }> = {
-    positive: { icon: TrendingUp, color: 'text-green-500' },
-    neutral: { icon: Minus, color: 'text-gray-500' },
+    positive: { icon: TrendingUp, color: 'text-emerald-500' },
+    neutral: { icon: Minus, color: 'text-slate-500' },
     negative: { icon: TrendingDown, color: 'text-red-500' },
   };
 
   const { icon: SentIcon, color } = sentimentConfig[call.sentiment];
 
   return (
-    <button
+    <motion.button
+      layout
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       onClick={onClick}
       className={cn(
-        'w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors',
-        isSelected && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500'
+        'w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-all duration-200',
+        isSelected && 'bg-indigo-50/50 dark:bg-indigo-900/10 border-l-[3px] border-indigo-500'
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-medium text-gray-900 dark:text-white truncate">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-sm font-medium text-slate-900 dark:text-white truncate">
               {call.customer.name}
             </span>
-            <SentIcon className={cn('w-4 h-4 flex-shrink-0', color)} />
+            <SentIcon className={cn('w-3.5 h-3.5 flex-shrink-0', color)} />
           </div>
-          <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-            <span className="flex items-center gap-1">
-              {format(new Date(call.startedAt), 'MMM d, yyyy')}
-            </span>
-            <span className="flex items-center gap-1">
+          <div className="flex items-center gap-2.5 text-[11px] text-slate-500 dark:text-slate-400">
+            <span>{format(new Date(call.startedAt), 'MMM d, yyyy')}</span>
+            <span className="flex items-center gap-0.5">
               <Clock className="w-3 h-3" />
               {formatDuration(call.duration)}
             </span>
           </div>
           {call.promisesCount > 0 && (
-            <div className="mt-2 flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-              <span className="font-bold">KES</span>
-              <span>{call.promisesCount} promise(s) - KES {formatKES(call.totalPromisedAmount)}</span>
+            <div className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+              <span className="font-semibold">KES</span>
+              <span>{call.totalPromisedAmount > 0 ? formatKES(call.totalPromisedAmount) : '0'} promised</span>
             </div>
           )}
           {call.summary && (
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
               {call.summary}
             </p>
           )}
         </div>
-        <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
+        <button
+          onClick={(e) => { e.stopPropagation(); onViewDetail(); }}
+          className="w-7 h-7 rounded-md bg-slate-100 dark:bg-slate-700 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors flex-shrink-0 mt-0.5"
+          title="View details"
+        >
+          <FileText className="w-3.5 h-3.5 text-slate-500" />
+        </button>
       </div>
-    </button>
+    </motion.button>
+  );
+}
+
+function DetailStat({ label, value, icon: Icon, color }: { label: string; value: string; icon: typeof Phone; color: string }) {
+  return (
+    <div className="text-center p-2 bg-slate-50 dark:bg-slate-700 rounded-md">
+      <Icon className={cn('w-3.5 h-3.5 mx-auto mb-0.5', color)} />
+      <p className={cn('text-sm font-bold tabular-nums', color)}>{value}</p>
+      <p className="text-[10px] text-slate-500 dark:text-slate-400">{label}</p>
+    </div>
   );
 }

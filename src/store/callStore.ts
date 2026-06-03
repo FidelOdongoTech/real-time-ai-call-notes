@@ -7,6 +7,7 @@ import { generateAISummary } from '../services/geminiService';
 interface CallState {
   currentCall: Call | null;
   callHistory: CallHistoryItem[];
+  callDetails: Record<string, Call>;
   theme: 'light' | 'dark';
   
   // Actions
@@ -23,6 +24,7 @@ interface CallState {
   toggleTheme: () => void;
   clearHistory: () => void;
   getCallById: (id: string) => CallHistoryItem | undefined;
+  getCallDetail: (id: string) => Call | undefined;
 }
 
 const initialExtraction: CallExtraction = {
@@ -40,6 +42,7 @@ export const useCallStore = create<CallState>()(
     (set, get) => ({
       currentCall: null,
       callHistory: [],
+      callDetails: {},
       theme: 'light',
 
       startCall: (customer: Customer) => {
@@ -94,6 +97,7 @@ export const useCallStore = create<CallState>()(
         set((state) => ({
           currentCall: endedCall,
           callHistory: [historyItem, ...state.callHistory],
+          callDetails: { ...state.callDetails, [endedCall.id]: endedCall },
         }));
       },
 
@@ -156,6 +160,7 @@ export const useCallStore = create<CallState>()(
           set((state) => ({
             currentCall: endedCall,
             callHistory: [historyItem, ...state.callHistory],
+            callDetails: { ...state.callDetails, [endedCall.id]: endedCall },
           }));
 
         } catch (error) {
@@ -278,11 +283,16 @@ export const useCallStore = create<CallState>()(
       getCallById: (id) => {
         return get().callHistory.find((call) => call.id === id);
       },
+
+      getCallDetail: (id) => {
+        return get().callDetails[id];
+      },
     }),
     {
       name: 'call-notes-storage',
       partialize: (state) => ({
         callHistory: state.callHistory,
+        callDetails: state.callDetails,
         theme: state.theme,
       }),
     }
