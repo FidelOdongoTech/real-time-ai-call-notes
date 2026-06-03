@@ -265,7 +265,7 @@ export function App() {
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-8">
               {/* Logo */}
-              <div className="flex items-center gap-2.5">
+              <button onClick={() => setView('dashboard')} className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-sm">
                   <Activity className="w-4 h-4 text-white" />
                 </div>
@@ -273,7 +273,7 @@ export function App() {
                   <h1 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">CallNotes</h1>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">AI Platform</p>
                 </div>
-              </div>
+              </button>
 
               {/* Navigation */}
               <nav className="hidden sm:flex items-center gap-0.5">

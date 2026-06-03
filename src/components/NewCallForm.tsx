@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Mic, User, Hash, X, Phone } from 'lucide-react';
 import type { Customer } from '../types';
 
+const params = new URLSearchParams(window.location.search);
+
 interface NewCallFormProps {
   onStart: (customer: Customer) => void;
   onCancel: () => void;
@@ -11,8 +13,8 @@ interface NewCallFormProps {
 export function NewCallForm({ onStart, onCancel }: NewCallFormProps) {
   const [customer, setCustomer] = useState<Customer>({
     name: '',
-    phone: '',
-    accountNumber: '',
+    phone: params.get('phone') || '',
+    accountNumber: params.get('account') || '',
     debtAmount: 0,
   });
 
